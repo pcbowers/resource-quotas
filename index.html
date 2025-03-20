@@ -16,10 +16,13 @@
         padding: 5px;
         cursor: pointer;
       }
-      input,
       select {
         padding: 5px;
-        width: 120px;
+        width: fit-content;
+      }
+      input {
+        padding: 5px;
+        width: 70px;
       }
       .deployment {
         position: relative;
@@ -54,54 +57,82 @@
   </head>
   <body>
     <div x-data="resourceCalculator()" x-init="loadFromUrl()">
-      <label
-        >CPU Display Unit:
-        <select x-model="cpuDisplayUnit" @change="updateUrl()">
-          <option value="millicores">Millicores</option>
-          <option value="cores">Cores</option>
-        </select>
-      </label>
-      <label
-        >Memory Display Unit:
-        <select x-model="memoryDisplayUnit" @change="updateUrl()">
-          <option value="B">Bytes</option>
-          <option value="Ki">KiB</option>
-          <option value="Mi">MiB</option>
-          <option value="Gi">GiB</option>
-          <option value="Ti">TiB</option>
-          <option value="Pi">PiB</option>
-          <option value="Ei">EiB</option>
-          <option value="k">kB</option>
-          <option value="M">MB</option>
-          <option value="G">GB</option>
-          <option value="T">TB</option>
-          <option value="P">PB</option>
-          <option value="E">EB</option>
-        </select>
-      </label>
-      <button @click="addDeployment">Add Deployment</button>
+      <div style="display: flex; align-items: center; gap: 5px">
+        <input
+          type="text"
+          x-model="title"
+          placeholder="Title"
+          @input="updateUrl()"
+          style="font-weight: bold; flex-grow: 1; font-size: 16px"
+        />
+
+        <label>
+          CPU Unit:
+          <select x-model="cpuDisplayUnit" @change="updateUrl()">
+            <option value="millicores">Millicores</option>
+            <option value="cores">Cores</option>
+          </select>
+        </label>
+
+        <label>
+          Memory Unit:
+          <select x-model="memoryDisplayUnit" @change="updateUrl()">
+            <option value="B">Bytes</option>
+            <option value="Ki">Ki</option>
+            <option value="Mi">Mi</option>
+            <option value="Gi">Gi</option>
+            <option value="Ti">Ti</option>
+            <option value="Pi">Pi</option>
+            <option value="Ei">Ei</option>
+            <option value="k">k</option>
+            <option value="M">M</option>
+            <option value="G">G</option>
+            <option value="T">T</option>
+            <option value="P">P</option>
+            <option value="E">E</option>
+          </select>
+        </label>
+
+        <button @click="addDeployment" style="margin-left: 5px">Add Deployment</button>
+      </div>
+
       <template x-for="(deployment, index) in deployments" :key="index">
         <div class="deployment">
-          <span>Deployment #<span x-text="index + 1"></span></span>
-          <input type="text" x-model="deployment.cpuRequest" placeholder="CPU Req" @input="updateUrl()" />
-          <input type="text" x-model="deployment.cpuLimit" placeholder="CPU Limit" @input="updateUrl()" />
-          <input type="text" x-model="deployment.memoryRequest" placeholder="Mem Req" @input="updateUrl()" />
-          <input type="text" x-model="deployment.memoryLimit" placeholder="Mem Limit" @input="updateUrl()" />
-          <label
-            >Replicas: <input type="number" x-model.number="deployment.replicas" value="1" @input="updateUrl()"
-          /></label>
-          <label
-            >Restarts: <input type="number" x-model.number="deployment.rollingRestarts" value="1" @input="updateUrl()"
-          /></label>
-          <span
-            >Total: <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuRequest, deployment))"></span> /
-            <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuLimit, deployment))"></span>,
-            <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryRequest, deployment))"></span> /
-            <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryLimit, deployment))"></span
-          ></span>
           <button class="delete-button" @click="deleteDeployment(index)">X</button>
+
+          <div>
+            <input
+              type="text"
+              x-model="deployment.name"
+              :placeholder="'Deployment #' + (index + 1)"
+              @input="updateUrl()"
+              style="width: 150px; font-weight: bold"
+            />
+            <span>: (</span>
+
+            <input type="text" x-model="deployment.cpuRequest" placeholder="CPU Req" @input="updateUrl()" />
+            <span>/</span>
+            <input type="text" x-model="deployment.cpuLimit" placeholder="CPU Limit" @input="updateUrl()" />
+            <span>,</span>
+            <input type="text" x-model="deployment.memoryRequest" placeholder="Mem Req" @input="updateUrl()" />
+            <span>/</span>
+            <input type="text" x-model="deployment.memoryLimit" placeholder="Mem Limit" @input="updateUrl()" />
+            <span>) x</span>
+            <input type="number" x-model.number="deployment.replicas" value="1" @input="updateUrl()" />
+          </div>
+
+          <div>
+            <span>
+              Total:
+              <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuRequest, deployment))"></span> /
+              <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuLimit, deployment))"></span>,
+              <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryRequest, deployment))"></span> /
+              <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryLimit, deployment))"></span>
+            </span>
+          </div>
         </div>
       </template>
+
       <div class="totals">
         CPU: <span x-text="formatCPU(totalCPURequest())"></span> / <span x-text="formatCPU(totalCPULimit())"></span>,
         Memory: <span x-text="formatMemory(totalMemoryRequest())"></span> /
@@ -112,22 +143,23 @@
     <script>
       function resourceCalculator() {
         return {
+          title: '',
           deployments: [],
           cpuDisplayUnit: 'millicores',
           memoryDisplayUnit: 'Mi',
           addDeployment() {
             this.deployments.push({
+              name: '',
               cpuRequest: '',
               cpuLimit: '',
               memoryRequest: '',
               memoryLimit: '',
-              replicas: 1,
-              rollingRestarts: 1
+              replicas: 1
             });
             this.updateUrl();
           },
           calculateDeploymentTotal(value, deployment) {
-            const multiplier = deployment.replicas + deployment.rollingRestarts;
+            const multiplier = deployment.replicas;
             return this.parseResource(value) * multiplier;
           },
           deleteDeployment(index) {
@@ -136,10 +168,10 @@
           },
           parseResource(value) {
             if (!value) return 0;
-            const match = value.match(/^([0-9.]+)(B?[a-zA-Z]*)$/);
+            const match = value.match(/^([0-9.]+)([a-zA-Z]*)$/);
             if (!match) return 0;
             let num = parseFloat(match[1]);
-            let unit = match[2].replace(/^B/, '');
+            let unit = match[2];
 
             const cpuUnits = { m: 0.001 };
             const memoryUnits = {
@@ -162,7 +194,7 @@
             return num;
           },
           formatCPU(value) {
-            return this.cpuDisplayUnit === 'millicores' ? value * 1000 + 'm' : value;
+            return this.cpuDisplayUnit === 'millicores' ? Math.round(value * 1000) + 'm' : parseFloat(value.toFixed(3));
           },
           formatMemory(value) {
             const memoryUnits = {
@@ -196,6 +228,7 @@
           },
           updateUrl() {
             const params = new URLSearchParams({
+              title: this.title,
               cpuUnit: this.cpuDisplayUnit,
               memUnit: this.memoryDisplayUnit,
               deployments: JSON.stringify(this.deployments)
@@ -204,6 +237,7 @@
           },
           loadFromUrl() {
             const params = new URLSearchParams(window.location.search);
+            this.title = params.get('title') || '';
             this.cpuDisplayUnit = params.get('cpuUnit') || 'millicores';
             this.memoryDisplayUnit = params.get('memUnit') || 'Mi';
             this.deployments = JSON.parse(params.get('deployments') || '[]');
