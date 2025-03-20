@@ -194,7 +194,10 @@
             return num;
           },
           formatCPU(value) {
-            return this.cpuDisplayUnit === 'millicores' ? Math.round(value * 1000) + 'm' : parseFloat(value.toFixed(3));
+            const totalPrecisionOnMillicores = 2;
+            return this.cpuDisplayUnit === 'millicores'
+              ? parseFloat((value * 1000).toFixed(totalPrecisionOnMillicores)) + 'm'
+              : parseFloat(value.toFixed(totalPrecisionOnMillicores + 3));
           },
           formatMemory(value) {
             const memoryUnits = {
