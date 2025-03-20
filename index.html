@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resource Quota Calculator</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: auto;
+      }
+      button {
+        padding: 5px;
+        cursor: pointer;
+      }
+      input,
+      select {
+        padding: 5px;
+        width: 120px;
+      }
+      .deployment {
+        position: relative;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .totals {
+        margin-top: 15px;
+        font-weight: bold;
+      }
+      .delete-button {
+        color: red;
+        position: absolute;
+        right: 0px;
+        top: 0px;
+        transform: translate(25%, -25%);
+        border: 1px solid red;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div x-data="resourceCalculator()" x-init="loadFromUrl()">
+      <label
+        >CPU Display Unit:
+        <select x-model="cpuDisplayUnit" @change="updateUrl()">
+          <option value="millicores">Millicores</option>
+          <option value="cores">Cores</option>
+        </select>
+      </label>
+      <label
+        >Memory Display Unit:
+        <select x-model="memoryDisplayUnit" @change="updateUrl()">
+          <option value="B">Bytes</option>
+          <option value="Ki">KiB</option>
+          <option value="Mi">MiB</option>
+          <option value="Gi">GiB</option>
+          <option value="Ti">TiB</option>
+          <option value="Pi">PiB</option>
+          <option value="Ei">EiB</option>
+          <option value="k">kB</option>
+          <option value="M">MB</option>
+          <option value="G">GB</option>
+          <option value="T">TB</option>
+          <option value="P">PB</option>
+          <option value="E">EB</option>
+        </select>
+      </label>
+      <button @click="addDeployment">Add Deployment</button>
+      <template x-for="(deployment, index) in deployments" :key="index">
+        <div class="deployment">
+          <span>Deployment #<span x-text="index + 1"></span></span>
+          <input type="text" x-model="deployment.cpuRequest" placeholder="CPU Req" @input="updateUrl()" />
+          <input type="text" x-model="deployment.cpuLimit" placeholder="CPU Limit" @input="updateUrl()" />
+          <input type="text" x-model="deployment.memoryRequest" placeholder="Mem Req" @input="updateUrl()" />
+          <input type="text" x-model="deployment.memoryLimit" placeholder="Mem Limit" @input="updateUrl()" />
+          <label
+            >Replicas: <input type="number" x-model.number="deployment.replicas" value="1" @input="updateUrl()"
+          /></label>
+          <label
+            >Restarts: <input type="number" x-model.number="deployment.rollingRestarts" value="1" @input="updateUrl()"
+          /></label>
+          <span
+            >Total: <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuRequest, deployment))"></span> /
+            <span x-text="formatCPU(calculateDeploymentTotal(deployment.cpuLimit, deployment))"></span>,
+            <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryRequest, deployment))"></span> /
+            <span x-text="formatMemory(calculateDeploymentTotal(deployment.memoryLimit, deployment))"></span
+          ></span>
+          <button class="delete-button" @click="deleteDeployment(index)">X</button>
+        </div>
+      </template>
+      <div class="totals">
+        CPU: <span x-text="formatCPU(totalCPURequest())"></span> / <span x-text="formatCPU(totalCPULimit())"></span>,
+        Memory: <span x-text="formatMemory(totalMemoryRequest())"></span> /
+        <span x-text="formatMemory(totalMemoryLimit())"></span>
+      </div>
+    </div>
+
+    <script>
+      function resourceCalculator() {
+        return {
+          deployments: [],
+          cpuDisplayUnit: 'millicores',
+          memoryDisplayUnit: 'Mi',
+          addDeployment() {
+            this.deployments.push({
+              cpuRequest: '',
+              cpuLimit: '',
+              memoryRequest: '',
+              memoryLimit: '',
+              replicas: 1,
+              rollingRestarts: 1
+            });
+            this.updateUrl();
+          },
+          calculateDeploymentTotal(value, deployment) {
+            const multiplier = deployment.replicas + deployment.rollingRestarts;
+            return this.parseResource(value) * multiplier;
+          },
+          deleteDeployment(index) {
+            this.deployments.splice(index, 1);
+            this.updateUrl();
+          },
+          parseResource(value) {
+            if (!value) return 0;
+            const match = value.match(/^([0-9.]+)(B?[a-zA-Z]*)$/);
+            if (!match) return 0;
+            let num = parseFloat(match[1]);
+            let unit = match[2].replace(/^B/, '');
+
+            const cpuUnits = { m: 0.001 };
+            const memoryUnits = {
+              k: 1e3,
+              M: 1e6,
+              G: 1e9,
+              T: 1e12,
+              P: 1e15,
+              E: 1e18,
+              Ki: 1024,
+              Mi: 1024 ** 2,
+              Gi: 1024 ** 3,
+              Ti: 1024 ** 4,
+              Pi: 1024 ** 5,
+              Ei: 1024 ** 6
+            };
+
+            if (unit in cpuUnits) return num * cpuUnits[unit];
+            if (unit in memoryUnits) return num * memoryUnits[unit];
+            return num;
+          },
+          formatCPU(value) {
+            return this.cpuDisplayUnit === 'millicores' ? value * 1000 + 'm' : value;
+          },
+          formatMemory(value) {
+            const memoryUnits = {
+              B: 1,
+              k: 1e3,
+              M: 1e6,
+              G: 1e9,
+              T: 1e12,
+              P: 1e15,
+              E: 1e18,
+              Ki: 1024,
+              Mi: 1024 ** 2,
+              Gi: 1024 ** 3,
+              Ti: 1024 ** 4,
+              Pi: 1024 ** 5,
+              Ei: 1024 ** 6
+            };
+            return value / memoryUnits[this.memoryDisplayUnit] + this.memoryDisplayUnit;
+          },
+          totalCPURequest() {
+            return this.deployments.reduce((sum, d) => sum + this.calculateDeploymentTotal(d.cpuRequest, d), 0);
+          },
+          totalCPULimit() {
+            return this.deployments.reduce((sum, d) => sum + this.calculateDeploymentTotal(d.cpuLimit, d), 0);
+          },
+          totalMemoryRequest() {
+            return this.deployments.reduce((sum, d) => sum + this.calculateDeploymentTotal(d.memoryRequest, d), 0);
+          },
+          totalMemoryLimit() {
+            return this.deployments.reduce((sum, d) => sum + this.calculateDeploymentTotal(d.memoryLimit, d), 0);
+          },
+          updateUrl() {
+            const params = new URLSearchParams({
+              cpuUnit: this.cpuDisplayUnit,
+              memUnit: this.memoryDisplayUnit,
+              deployments: JSON.stringify(this.deployments)
+            });
+            history.replaceState({}, '', '?' + params.toString());
+          },
+          loadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            this.cpuDisplayUnit = params.get('cpuUnit') || 'millicores';
+            this.memoryDisplayUnit = params.get('memUnit') || 'Mi';
+            this.deployments = JSON.parse(params.get('deployments') || '[]');
+          }
+        };
+      }
+    </script>
+  </body>
+</html>
